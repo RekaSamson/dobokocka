@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Névdobó Kocka</title>
+
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: linear-gradient(135deg, #1e1e2f, #2b2b45);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: Arial, sans-serif;
+        color: white;
+    }
+
+    .scene {
+        width: 260px;
+        height: 260px;
+        perspective: 1000px;
+        position: relative;
+    }
+
+    .cube {
+        width: 160px;
+        height: 160px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform-style: preserve-3d;
+        transform: translate(-50%, -50%) rotateX(-20deg) rotateY(20deg);
+        transition: transform 3s cubic-bezier(.17,.67,.3,1);
+        cursor: pointer;
+    }
+
+    .face {
+        position: absolute;
+        width: 160px;
+        height: 160px;
+        border: 3px solid rgba(255,255,255,0.2);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 28px;
+        font-weight: bold;
+        backdrop-filter: blur(5px);
+        background: rgba(255,255,255,0.08);
+        box-shadow: inset 0 0 15px rgba(255,255,255,0.1);
+        backface-visibility: visible;
+    }
+
+    /* A lapok elhelyezkedése a 3D térben */
+    .front  { transform: rotateY(0deg) translateZ(80px); }
+    .back   { transform: rotateY(180deg) translateZ(80px); }
+    .right  { transform: rotateY(90deg) translateZ(80px); }
+    .left   { transform: rotateY(-90deg) translateZ(80px); }
+    .top    { transform: rotateX(90deg) translateZ(80px); }
+    .bottom { transform: rotateX(-90deg) translateZ(80px); }
+
+    .reka { color: #ff4d6d; }
+    .lilla { color: #ffd166; }
+    .dotya { color: #06d6a0; }
+    .judit { color: #4cc9f0; }
+    .ida { color: #c77dff; }
+    .fanni { color: #ff9f1c; }
+
+    .instruction {
+        position: absolute;
+        bottom: 30px;
+        font-size: 18px;
+        opacity: 0.8;
+        pointer-events: none;
+    }
+
+    canvas {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+    }
+</style>
+</head>
+
+<body>
+
+<canvas id="confetti"></canvas>
+
+<div class="scene">
+    <div class="cube" id="cube">
+        <div class="face front reka">Réka</div>
+        <div class="face back lilla">Lilla</div>
+        <div class="face right dotya">Dotya</div>
+        <div class="face left judit">Judit</div>
+        <div class="face top ida">Ida</div>
+        <div class="face bottom fanni">Fanni</div>
+    </div>
+</div>
+
+<div class="instruction">Kattints a kockára a dobáshoz!</div>
+
+<script>
+const cube = document.getElementById("cube");
+
+let rolling = false;
+let confettiAnimation = null;
+
+// Ahhoz, hogy az adott lap legyen elöl, a KOCKÁT az ELLENTÉTES irányba kell forgatni.
+// Hozzáadtunk extra teljes fordulatokat (pl. 1440 fok) a pörgési hatás kedvéért.
+const faces = [
+    { name: "Réka",  x: 1440, y: 1440 },       // Front -> 0, 0
+    { name: "Lilla", x: 1440, y: 1620 },       // Back -> 0, 180
+    { name: "Dotya", x: 1440, y: 1530 },       // Right -> szemből nézve: rotateY(-90)
+    { name: "Judit", x: 1440, y: 1350 },       // Left -> szemből nézve: rotateY(90)
+    { name: "Ida",   x: 1350, y: 1440 },       // Top -> szemből nézve: rotateX(-90)
+    { name: "Fanni", x: 1530, y: 1440 }        // Bottom -> szemből nézve: rotateX(90)
+];
+
+cube.addEventListener("click", () => {
+    if (rolling) return;
+    rolling = true;
+
+    stopConfetti();
+
+    // Véletlenszerű lap kiválasztása
+    const targetFace = faces[Math.floor(Math.random() * faces.length)];
+
+    // Első fázis: Vad pörgetés a célobjektum pozíciójára alapozva
+    cube.style.transition = "transform 3s cubic-bezier(.17,.67,.3,1)";
+    cube.style.transform = `translate(-50%, -50%) rotateX(${targetFace.x}deg) rotateY(${targetFace.y}deg) scale(1)`;
+
+    // Második fázis: Amikor megáll, ráközelít a nyertesre
+    setTimeout(() => {
+        cube.style.transition = "transform 0.8s ease-out";
+        // Megtartjuk a szögeket (hogy ne forduljon el), de rászorzunk a scale-re
+        cube.style.transform = `translate(-50%, -50%) rotateX(${targetFace.x}deg) rotateY(${targetFace.y}deg) scale(2.2)`;
+
+        startConfetti();
+
+        // 3 másodperc múlva visszaállíthatjuk a játékot egy újabb dobáshoz
+        setTimeout(() => {
+            rolling = false;
+        }, 1000);
+
+    }, 3000);
+});
+
+
+// KONFETTI EFFECT
+
+const canvas = document.getElementById("confetti");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let confetti = [];
+
+function createConfetti() {
+    confetti = [];
+    for (let i = 0; i < 200; i++) {
+        confetti.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height - canvas.height,
+            r: Math.random() * 6 + 4,
+            d: Math.random() * 50,
+            color: `hsl(${Math.random() * 360}, 100%, 60%)`,
+            tilt: Math.random() * 10 - 5,
+            tiltAngleIncremental: Math.random() * 0.07 + 0.02,
+            tiltAngle: 0
+        });
+    }
+}
+
+function drawConfetti() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    confetti.forEach(c => {
+        c.tiltAngle += c.tiltAngleIncremental;
+        c.y += (Math.cos(c.d) + 3 + c.r / 2) / 2;
+        c.x += Math.sin(c.d);
+        c.tilt = Math.sin(c.tiltAngle - c.r / 2) * 5;
+
+        ctx.beginPath();
+        ctx.lineWidth = c.r;
+        ctx.strokeStyle = c.color;
+        ctx.moveTo(c.x + c.tilt + c.r / 2, c.y);
+        ctx.lineTo(c.x + c.tilt, c.y + c.tilt + c.r / 2);
+        ctx.stroke();
+
+        if (c.y > canvas.height) {
+            c.y = -20;
+            c.x = Math.random() * canvas.width;
+        }
+    });
+}
+
+function animateConfetti() {
+    drawConfetti();
+    confettiAnimation = requestAnimationFrame(animateConfetti);
+}
+
+function startConfetti() {
+    createConfetti();
+    animateConfetti();
+
+    // 4 másodperc után magától eláll a konfetti eső
+    setTimeout(() => {
+        stopConfetti();
+    }, 4000);
+}
+
+function stopConfetti() {
+    cancelAnimationFrame(confettiAnimation);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+window.addEventListener("resize", () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+</script>
+
+</body>
+</html>
